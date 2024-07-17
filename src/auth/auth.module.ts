@@ -14,6 +14,9 @@ import { JwtModule } from '@nestjs/jwt';
     }),
     JwtModule.register({
       secret: 'dgsw2024',
+      signOptions: {
+        expiresIn: '7d',
+      },
     }),
   ],
   controllers: [AuthController],

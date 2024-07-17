@@ -14,10 +14,30 @@ datasource db {
 }
 
 model User {
-  email       String @id @unique
-  username    String @db.VarChar(20)
+  email       String    @id @unique
+  username    String    @db.VarChar(20)
   birth       String
   password    String
-  create_date String @default("xxxx-xx-xx")
+  role        Role      @default(USER)
+  create_date String    @default("xxxx-xx-xx")
   update_date String
+  product     Product[] @relation("UserProduct")
+}
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String
+  sale        String?
+  price       String
+  imageUrl    String?
+  link        String
+  auther      User    @relation("UserProduct", fields: [autherEmail], references: [email])
+  autherEmail String
+}
+
+enum Role {
+  DEVELOPER
+  ADMIN
+  USER
 }

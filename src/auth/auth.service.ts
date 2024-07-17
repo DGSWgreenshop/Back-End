@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,8 +9,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { AuthCredentialDto } from './dto/auth-credential.dto';
-import { User } from '@prisma/client';
+import { Product, User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -58,7 +60,6 @@ export class AuthService {
 
     const getEmail = await this.prisma.user.findUnique({
       where: { email },
-      select: { email: true },
     });
     if (getEmail) {
       throw new BadRequestException('Email already exists');
@@ -70,7 +71,7 @@ export class AuthService {
     const currentDate: Date = new Date();
     const formattedDate: string = currentDate.toISOString().split('T')[0];
 
-    const user = this.prisma.user.create({
+    const user: User = await this.prisma.user.create({
       data: {
         username,
         email,
@@ -82,5 +83,69 @@ export class AuthService {
     });
 
     return user;
+  }
+
+  async updateUser(updateUserDto: UpdateUserDto, email: string): Promise<User> {
+    try {
+      const { newUsername, newEmail, newPassword } = updateUserDto;
+
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString().split('T')[0];
+
+      if (newPassword) {
+        const salt = await bcrypt.genSalt();
+        const hashedSalt = await bcrypt.hash(newPassword, salt);
+
+        const user = await this.prisma.user.update({
+          where: { email },
+          data: {
+            username: newUsername,
+            password: hashedSalt,
+            email: newEmail,
+            update_date: formattedDate,
+          },
+        });
+
+        return user;
+      } else {
+        const user = await this.prisma.user.update({
+          where: { email },
+          data: {
+            username: newUsername,
+            email: newEmail,
+            update_date: formattedDate,
+          },
+        });
+
+        return user;
+      }
+    } catch (err) {
+      throw new InternalServerErrorException(
+        '사용자 정보를 업데이트하는데 실패했습니다: ' + err.message,
+      );
+    }
+  }
+
+  async deleteUser(email: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({ where: { email } });
+    } catch (err) {
+      throw new InternalServerErrorException();
+    }
+  }
+
+  async uploadImage(imagePath: string, id: number): Promise<void> {
+    try {
+      if (imagePath) {
+        await this.prisma.product.update({
+          where: { id },
+          data: { imageUrl: imagePath },
+        });
+      } else {
+        throw new NotFoundException('imageUrl 정보가 없습니다');
+      }
+    } catch (err) {
+      throw new InternalServerErrorException();
+    }
   }
 }
